@@ -10,7 +10,7 @@
 #   abb store python-hf-xet-VERSION-vendor.tar.xz
 
 Name:		python-hf-xet
-Version:	1.6.0
+Version:	1.7.0
 Release:	1
 Summary:	Fast transfer of large files with the Hugging Face Hub
 License:	Apache-2.0
