@@ -56,6 +56,9 @@ ln -sfn ../.cargo hf_xet/.cargo
 %build -p
 export CARGO_HOME=$PWD/.cargo
 export CARGO_NET_OFFLINE=true
+# Cargo.toml sets lto = true. Combined with the distro
+# -C linker-plugin-lto, rustc aborts in LLVM on __rust_alloc.
+export CARGO_PROFILE_RELEASE_LTO=off
 
 %build -a
 # hf_xet is excluded from the root workspace (and the sdist omits git_xet),
