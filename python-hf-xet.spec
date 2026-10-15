@@ -22,10 +22,11 @@ Source1:	%{name}-%{version}-vendor.tar.xz
 BuildSystem:	python
 BuildRequires:	cargo
 BuildRequires:	cmake
-BuildRequires:	pkgconfig(python)
+BuildRequires:	pkgconfig(python3)
 BuildRequires:	python%{pyver}dist(maturin)
 BuildRequires:	python%{pyver}dist(pip)
-BuildRequires:	rust-packaging
+BuildRequires:	python%{pyver}dist(setuptools)
+BuildRequires:	python%{pyver}dist(wheel)
 
 %description
 hf-xet enables huggingface_hub to use Xet storage for uploading and
@@ -34,12 +35,23 @@ deduplication, efficient storage and retrieval with local disk caching,
 and backwards compatibility with Git LFS.
 
 %prep -a
-# Extract vendored crate tarball
+# Extract vendored crate tarball. rust-packaging pulls python-rust2rpm,
+# which still requires Python 3.14.
 tar xf %{SOURCE1}
-# Point cargo at the vendored crates (offline builds)
-%cargo_prep -v vendor
-# cargo_prep writes a CWD-relative path; maturin/cargo also run from hf_xet/
-sed -i "s#directory = \"vendor\"#directory = \"$PWD/vendor\"#" .cargo/config.toml
+rm -f Cargo.toml.orig hf_xet/Cargo.toml.orig
+mkdir -p .cargo
+cat > .cargo/config.toml << EOF
+[net]
+offline = true
+
+[source.crates-io]
+replace-with = "vendored-sources"
+
+[source.vendored-sources]
+directory = "$PWD/vendor"
+EOF
+# maturin builds from hf_xet/
+ln -sfn ../.cargo hf_xet/.cargo
 
 %build -p
 export CARGO_HOME=$PWD/.cargo
@@ -48,10 +60,11 @@ export CARGO_NET_OFFLINE=true
 %build -a
 # hf_xet is excluded from the root workspace (and the sdist omits git_xet),
 # so generate the license list from the crate that maturin actually builds.
-ln -sfn ../.cargo hf_xet/.cargo
 pushd hf_xet
-%cargo_license_summary
-%{cargo_license} > ../LICENSES.dependencies
+cargo tree --locked --offline --edges no-build,no-dev,no-proc-macro \
+	--prefix none --format '{l}: {p}' \
+	| sed -e "s: ($(pwd)[^)]*)::g" -e 's: / :/:g' -e 's:/: OR :g' \
+	| sort -u > ../LICENSES.dependencies
 popd
 
 %files
